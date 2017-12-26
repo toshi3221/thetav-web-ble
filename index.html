@@ -1,0 +1,62 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="utf-8" />
+    <meta http-equiv="X-UA-Compatible" content="IE=edge">
+    <title>Web Bluetooth API Sample for THETA V</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <script src="https://cdn.jsdelivr.net/npm/vue"></script>
+</head>
+<body>
+    <div id="app">
+        <p><label>Device Name: <input v-model="deviceName"></label></p>
+        <p><label>Auth UUID: <input v-model="authUUID"></label></p>
+        <p><button v-on:click="connect">Connect</button><button v-on:click="takePicture">Take Picture</button></p>
+        <p>{{message}}</p>
+    </div>
+    <script>
+        const BLUETOOTH_CONTROL_SERVICE = '0f291746-0c80-4726-87a7-3c501fd3b4b6'
+        const AUTH_BLUETOOTH_DEVICE_CHARACTERISTIC = 'ebafb2f0-0e0f-40a2-a84f-e2f098dc13c3'
+        const SHOOTING_CONTROL_SERVICE = '1d0f3602-8dfb-4340-9045-513040dad991'
+        const TAKE_PICTURE_CHARACTERISTIC = 'fec1805c-8905-4477-b862-ba5e447528a5'
+
+        let bluetooth = window.navigator.bluetooth
+        let app = new Vue({
+            el: '#app',
+            data: {
+                deviceName: '',
+                authUUID: AUTH_BLUETOOTH_DEVICE_CHARACTERISTIC,
+                bluetooth: {},
+                message: ''
+            },
+            methods: {
+                connect: async () => {
+                    let device = app.bluetooth.device = await bluetooth.requestDevice({
+                        filters: [
+                            {name: app.deviceName}
+                        ],
+                        optionalServices: [
+                            BLUETOOTH_CONTROL_SERVICE,
+                            SHOOTING_CONTROL_SERVICE
+                        ]
+                    })
+                    console.log('device:', device.gatt)
+                    let server = app.bluetooth.server = await device.gatt.connect()
+                    console.log('server:', server)
+                    let bluetooth_control_service = await server.getPrimaryService(BLUETOOTH_CONTROL_SERVICE)
+                    let auth_bluetooth_device_chacharacteristic = await bluetooth_control_service.getCharacteristic(AUTH_BLUETOOTH_DEVICE_CHARACTERISTIC)
+                    await auth_bluetooth_device_chacharacteristic.writeValue(new TextEncoder().encode(app.authUUID))
+                    app.message = `Device "${app.deviceName}" is connected.`
+                },
+                takePicture: async () => {
+                    let server = app.bluetooth.server
+                    let shooting_control_service = await server.getPrimaryService(SHOOTING_CONTROL_SERVICE)
+                    let take_picture_characteristic = await shooting_control_service.getCharacteristic(TAKE_PICTURE_CHARACTERISTIC)
+                    await take_picture_characteristic.writeValue(new Uint8Array([1]))
+                    app.message = "Take Picture is succeed."
+                }
+            }
+        })
+    </script>
+</body>
+</html>
