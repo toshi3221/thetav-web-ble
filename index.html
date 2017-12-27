@@ -18,6 +18,15 @@
         </p>
         <p v-if="bluetooth.device">Device Status: Name: {{bluetooth.device.name}}, Connected: {{bluetooth.device.gatt.connected}}, Battery Level: {{deviceBatteryLevel}}</p>
         <p>{{message}}</p>
+        <p v-if="bluetooth.isDeviceServices">Device Services:
+            <ul id="services">
+                <li v-for="service in bluetooth.device.services">{{service.uuid}}
+                    <ul v-if="service.characteristics" class="characteristics">
+                        <li v-for="characteristic in service.characteristics">{{characteristic.uuid}}</li>
+                    </ul>
+                </li>
+            </ul>
+        </p>
     </div>
     <script>
         const BLUETOOTH_CONTROL_SERVICE = '0f291746-0c80-4726-87a7-3c501fd3b4b6'
@@ -61,6 +70,10 @@
                     let battery_level = await battery_level_characteristic.readValue()
                     app.deviceBatteryLevel = battery_level.getUint8(0)
                     battery_level_characteristic.addEventListener('characteristicvaluechanged', (event) => this.onBatteryLevelChaneged(event))
+                    app.bluetooth.isDeviceServices = Servicesapp.bluetooth.device.services = await server.getPrimaryServices()
+                    app.bluetooth.device.services.forEach(async service => {
+                        service.characteristics = await service.getCharacteristics()
+                    })
                 },
                 disconnect: async () => {
                     await app.bluetooth.device.gatt.disconnect()
