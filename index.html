@@ -11,12 +11,19 @@
     <div id="app">
         <p><label>Device Name: <input v-model="deviceName"></label></p>
         <p><label>Auth UUID: <input v-model="authUUID"></label></p>
-        <p><button v-on:click="connect">Connect</button><button v-on:click="takePicture">Take Picture</button></p>
+        <p>
+            <button v-on:click="connect">Connect</button>
+            <button v-on:click="takePicture">Take Picture</button>
+            <button v-on:click="disconnect">Disconnect</button>
+        </p>
+        <p v-if="bluetooth.device">Device Status: Name: {{bluetooth.device.name}}, Connected: {{bluetooth.device.gatt.connected}}, Battery Level: {{deviceBatteryLevel}}</p>
         <p>{{message}}</p>
     </div>
     <script>
         const BLUETOOTH_CONTROL_SERVICE = '0f291746-0c80-4726-87a7-3c501fd3b4b6'
         const AUTH_BLUETOOTH_DEVICE_CHARACTERISTIC = 'ebafb2f0-0e0f-40a2-a84f-e2f098dc13c3'
+        const SHOOTING_STATUS_SERVICE = '8af982b1-f1ff-4d49-83f0-a56db4c431a7'
+        const BATTERY_LEVEL_CHARACTERISTIC = '875fc41d-4980-434c-a653-fd4a4d4410c4'
         const SHOOTING_CONTROL_SERVICE = '1d0f3602-8dfb-4340-9045-513040dad991'
         const TAKE_PICTURE_CHARACTERISTIC = 'fec1805c-8905-4477-b862-ba5e447528a5'
 
@@ -25,6 +32,7 @@
             el: '#app',
             data: {
                 deviceName: '',
+                deviceBatteryLevel: 0,
                 authUUID: AUTH_BLUETOOTH_DEVICE_CHARACTERISTIC,
                 bluetooth: {},
                 message: ''
@@ -37,6 +45,7 @@
                         ],
                         optionalServices: [
                             BLUETOOTH_CONTROL_SERVICE,
+                            SHOOTING_STATUS_SERVICE,
                             SHOOTING_CONTROL_SERVICE
                         ]
                     })
@@ -47,6 +56,15 @@
                     let auth_bluetooth_device_chacharacteristic = await bluetooth_control_service.getCharacteristic(AUTH_BLUETOOTH_DEVICE_CHARACTERISTIC)
                     await auth_bluetooth_device_chacharacteristic.writeValue(new TextEncoder().encode(app.authUUID))
                     app.message = `Device "${app.deviceName}" is connected.`
+                    let shooting_status_service = await server.getPrimaryService(SHOOTING_STATUS_SERVICE)
+                    let battery_level_characteristic = app.bluetooth.device.battery_level_characteristic = await shooting_status_service.getCharacteristic(BATTERY_LEVEL_CHARACTERISTIC)
+                    let battery_level = await battery_level_characteristic.readValue()
+                    app.deviceBatteryLevel = battery_level.getUint8(0)
+                    battery_level_characteristic.addEventListener('characteristicvaluechanged', (event) => this.onBatteryLevelChaneged(event))
+                },
+                disconnect: async () => {
+                    await app.bluetooth.device.gatt.disconnect()
+                    app.message = `Device "${app.deviceName}" is disconnected.`
                 },
                 takePicture: async () => {
                     let server = app.bluetooth.server
@@ -54,6 +72,11 @@
                     let take_picture_characteristic = await shooting_control_service.getCharacteristic(TAKE_PICTURE_CHARACTERISTIC)
                     await take_picture_characteristic.writeValue(new Uint8Array([1]))
                     app.message = "Take Picture is succeed."
+                },
+                onBatteryLevelChaneged: async (event) => {
+                    let battery_level = event.target.value.getUint8(0)
+                    console.log('onBatteryLevelChaneged')
+                    app.deviceBatteryLevel = battery_level
                 }
             }
         })
